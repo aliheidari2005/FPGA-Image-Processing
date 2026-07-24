@@ -5,8 +5,8 @@ import os
 # Configuration
 INPUT_FILE = "output_image.txt"
 OUTPUT_FILE = "reconstructed_output.png"
-IMG_WIDTH = 128
-IMG_HEIGHT = 128
+IMG_WIDTH = 256
+IMG_HEIGHT = 256
 
 def reconstruct_image():
     if not os.path.exists(INPUT_FILE):

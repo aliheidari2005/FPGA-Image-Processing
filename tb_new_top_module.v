@@ -2,21 +2,40 @@
 
 module tb_new_top_module();
 
+    // =========================================================================
+    // Testbench Parameters (Set for 256x256 RGB)
+    // =========================================================================
+    parameter IMG_WIDTH     = 256;
+    parameter IMG_HEIGHT    = 256;
+    parameter ADDR_WIDTH    = 16;
+    parameter COORD_WIDTH   = 8;
+    parameter DATA_WIDTH    = 8;
+    parameter IN_DATA_WIDTH = 24;
+    
+    localparam TOTAL_PIXELS = IMG_WIDTH * IMG_HEIGHT;
+
     // 1. Signals for driving the Top Module
     reg clk_25MHz;
     reg rst_pin;
     reg enable;
     
     // Outputs from the Top Module
-    wire [7:0] final_pixel;
-    wire       final_valid;
+    wire [DATA_WIDTH-1:0] final_pixel;
+    wire                  final_valid;
 
     // 2. File I/O Variables
     integer file_id;
     integer pixel_count;
 
     // 3. Instantiate the Unit Under Test (UUT)
-    new_top_module uut (
+    new_top_module #(
+        .IMG_WIDTH(IMG_WIDTH),
+        .IMG_HEIGHT(IMG_HEIGHT),
+        .ADDR_WIDTH(ADDR_WIDTH),
+        .COORD_WIDTH(COORD_WIDTH),
+        .DATA_WIDTH(DATA_WIDTH),
+        .IN_DATA_WIDTH(IN_DATA_WIDTH)
+    ) uut (
         .clk_25MHz(clk_25MHz),
         .rst_pin(rst_pin),
         .enable(enable),
@@ -45,7 +64,7 @@ module tb_new_top_module();
             $finish;
         end
 
-        $display("Starting Simulation...");
+        $display("Starting Simulation for %0d x %0d image...", IMG_WIDTH, IMG_HEIGHT);
 
         // Hold reset for 200ns
         #200;
@@ -60,8 +79,8 @@ module tb_new_top_module();
         $display("Pipeline Enabled. Waiting for valid pixels...");
 
         // Safety timeout in case valid signals never arrive
-        // 16384 pixels * 13.3ns + pipeline latency = ~220us. Giving it 1ms to be safe.
-        #1000000; 
+        // 65536 pixels * 13.3ns + pipeline latency = ~871us. Giving it 5ms to be safe.
+        #5000000; 
         $display("Simulation Timeout Reached!");
         $fclose(file_id);
         $finish;
@@ -77,13 +96,14 @@ module tb_new_top_module();
             pixel_count = pixel_count + 1;
             
             // Log progress occasionally so you know simulation isn't frozen
-            if (pixel_count % 4096 == 0) begin
-                $display("Captured %d / 16384 pixels...", pixel_count);
+            // Triggers exactly 16 times during the frame
+            if (pixel_count % (TOTAL_PIXELS / 16) == 0) begin
+                $display("Captured %0d / %0d pixels...", pixel_count, TOTAL_PIXELS);
             end
             
             // Stop simulation exactly when the frame completes
-            if (pixel_count == 16384) begin
-                $display("Success: All 16384 pixels captured!");
+            if (pixel_count == TOTAL_PIXELS) begin
+                $display("Success: All %0d pixels captured!", TOTAL_PIXELS);
                 $fclose(file_id);
                 $finish;
             end

@@ -1,12 +1,22 @@
 `timescale 1ns / 1ps
 
-module new_top_module (
+module new_top_module #(
+    // =========================================================================
+    // Top-Level Parameters
+    // =========================================================================
+    parameter IMG_WIDTH     = 256, // Width of the image
+    parameter IMG_HEIGHT    = 256, // Height of the image
+    parameter ADDR_WIDTH    = 16,  // log2(IMG_WIDTH * IMG_HEIGHT)
+    parameter COORD_WIDTH   = 8,   // log2(IMG_WIDTH)
+    parameter DATA_WIDTH    = 8,   // Internal pipeline pixel bit-width
+    parameter IN_DATA_WIDTH = 24    // ROM output data width (8 for Gray, 24 for RGB)
+)(
     input  wire clk_25MHz,         // 25MHz external clock
     input  wire rst_pin,           // Active-high reset
     input  wire enable,            // Starts the image processing pipeline
     
-    output wire [7:0] final_pixel, // The resulting edge-detected pixel
-    output wire       final_valid  // High when final_pixel is valid
+    output wire [DATA_WIDTH-1:0] final_pixel, // The resulting edge-detected pixel
+    output wire                  final_valid  // High when final_pixel is valid
 );
 
     // =========================================================================
@@ -18,28 +28,28 @@ module new_top_module (
     wire clk_locked;
     
     // ROM Interface
-    wire [13:0] system_rom_addr;
-    wire [7:0] system_rom_data; 
+    wire [ADDR_WIDTH-1:0]    system_rom_addr;
+    wire [IN_DATA_WIDTH-1:0] system_rom_data; 
     
     // Stage 1: ROM Reader Outputs
-    wire [7:0] rr_pixel_out;
-    wire       rr_valid_out;
+    wire [DATA_WIDTH-1:0] rr_pixel_out;
+    wire                  rr_valid_out;
     
     // Stage 2: First Window Generator (For Median Filter) Outputs
-    wire       wg1_valid;
-    wire [7:0] m_p00, m_p01, m_p02;
-    wire [7:0] m_p10, m_p11, m_p12;
-    wire [7:0] m_p20, m_p21, m_p22;
+    wire                  wg1_valid;
+    wire [DATA_WIDTH-1:0] m_p00, m_p01, m_p02;
+    wire [DATA_WIDTH-1:0] m_p10, m_p11, m_p12;
+    wire [DATA_WIDTH-1:0] m_p20, m_p21, m_p22;
     
     // Stage 3: Median Filter Outputs
-    wire [7:0] median_pixel;
-    wire       median_valid;
+    wire [DATA_WIDTH-1:0] median_pixel;
+    wire                  median_valid;
     
     // Stage 4: Second Window Generator (For Laplace Filter) Outputs
-    wire       wg2_valid;
-    wire [7:0] l_p00, l_p01, l_p02;
-    wire [7:0] l_p10, l_p11, l_p12;
-    wire [7:0] l_p20, l_p21, l_p22;
+    wire                  wg2_valid;
+    wire [DATA_WIDTH-1:0] l_p00, l_p01, l_p02;
+    wire [DATA_WIDTH-1:0] l_p10, l_p11, l_p12;
+    wire [DATA_WIDTH-1:0] l_p20, l_p21, l_p22;
 
     // =========================================================================
     // 2. IP Core Instantiations
@@ -54,10 +64,10 @@ module new_top_module (
     );
 
     // Block RAM containing the image
-	 image_mem instance_rom (
-        .clka(clk_75MHz),          // Changed to lowercase
-        .addra(system_rom_addr),  // Changed to lowercase
-        .douta(system_rom_data)   // Changed to lowercase
+    image_mem instance_rom (
+        .clka(clk_75MHz),
+        .addra(system_rom_addr),
+        .douta(system_rom_data) 
     );
 
     // =========================================================================
@@ -66,10 +76,10 @@ module new_top_module (
 
     // Stage 1: Memory Controller & RGB to Grayscale
     rom_reader #(
-        .IMG_WIDTH(128),
-        .IMG_HEIGHT(128),
-        .ADDR_WIDTH(14),
-		  .IN_DATA_WIDTH(8)
+        .IMG_WIDTH(IMG_WIDTH),
+        .IMG_HEIGHT(IMG_HEIGHT),
+        .ADDR_WIDTH(ADDR_WIDTH),
+        .IN_DATA_WIDTH(IN_DATA_WIDTH)
     ) u_rom_reader (
         .clk(clk_75MHz),
         .rst(rst_pin),
@@ -84,10 +94,10 @@ module new_top_module (
 
     // Stage 2: Create 3x3 Window for Median Filter
     window_generator_3x3 #(
-        .IMG_WIDTH(128),
-        .IMG_HEIGHT(128),
-        .DATA_WIDTH(8),
-        .COORD_WIDTH(7)
+        .IMG_WIDTH(IMG_WIDTH),
+        .IMG_HEIGHT(IMG_HEIGHT),
+        .DATA_WIDTH(DATA_WIDTH),
+        .COORD_WIDTH(COORD_WIDTH)
     ) u_window_gen_median (
         .clk(clk_75MHz),
         .rst(rst_pin),
@@ -117,10 +127,10 @@ module new_top_module (
     // Stage 4: Create 3x3 Window for Laplace Filter
     // This generator treats the cleaned output of the median filter as its new input stream
     window_generator_3x3 #(
-        .IMG_WIDTH(128),
-        .IMG_HEIGHT(128),
-        .DATA_WIDTH(8),
-        .COORD_WIDTH(7)
+        .IMG_WIDTH(IMG_WIDTH),
+        .IMG_HEIGHT(IMG_HEIGHT),
+        .DATA_WIDTH(DATA_WIDTH),
+        .COORD_WIDTH(COORD_WIDTH)
     ) u_window_gen_laplace (
         .clk(clk_75MHz),
         .rst(rst_pin),
